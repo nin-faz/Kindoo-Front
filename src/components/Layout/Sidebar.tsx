@@ -13,8 +13,8 @@ interface SidebarProps {
 }
 
 const GET_CONVERSATIONS_BY_PARTICIPANT = gql`
-  query GetConversationsByParticipant($participantId: String!) {
-    findByParticipantId(participantId: $participantId) {
+  query GetConversationsByParticipant($p_participantId: String!) {
+    findByParticipantId(p_participantId: $p_participantId) {
       id
       participants {
         id
@@ -34,9 +34,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  console.log('Current User:', currentUser);
 
   const { data, loading, error } = useQuery(GET_CONVERSATIONS_BY_PARTICIPANT, {
-    variables: { participantId: currentUser.id },
+    variables: { p_participantId: currentUser.id },
     fetchPolicy: 'network-only',
   });
 

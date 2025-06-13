@@ -14,8 +14,8 @@ const GET_USERS = gql`
 `;
 
 const FIND_CONVERSATION_BY_PARTICIPANTS = gql`
-  query FindByParticipants($participantsIds: [String!]!) {
-    findByParticipants(participantsIds: $participantsIds) {
+  query FindByParticipants($p_participantsIds: [String!]!) {
+    findByParticipants(p_participantsIds: $p_participantsIds) {
       id
       participants {
         id
@@ -27,8 +27,8 @@ const FIND_CONVERSATION_BY_PARTICIPANTS = gql`
 `;
 
 const CREATE_CONVERSATION = gql`
-  mutation CreateConversation($participantIds: [String!]!) {
-    createConversation(createConversationInput: { participantIds: $participantIds }) {
+  mutation CreateConversation($p_participantIds: [String!]!) {
+    createConversation(p_createConversationInput: { participantIds: $p_participantIds }) {
       id
       participants {
         id
@@ -63,7 +63,7 @@ const Modal: React.FC<ConversationModalProps> = ({
     if (userId === currentUserId) return;
   // Vérifie si la conversation existe déjà
     const participants = [currentUserId, userId];
-    const { data } = await findConversation({ variables: { participantsIds: participants } });
+    const { data } = await findConversation({ variables: { p_participantsIds: participants } });
     if (data?.findByParticipants) {
       alert("Une conversation existe déjà avec cet utilisateur.");
       onClose();
@@ -71,7 +71,7 @@ const Modal: React.FC<ConversationModalProps> = ({
     }
     // Sinon, crée la conversation
     const res = await createConversation({
-      variables: { participantIds: participants },
+      variables: { p_participantIds: participants },
     });
     if (onConversationCreated) {
       onConversationCreated(res.data.createConversation);

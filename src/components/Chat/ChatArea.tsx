@@ -8,7 +8,7 @@ import { Phone, Video, MoreVertical } from 'lucide-react';
 import { useQuery, useMutation, gql } from '@apollo/client';
 
 const GET_MESSAGES = gql`
-  query GetByConversationId($conversationId: String!) {
+  query getByConversationId($conversationId: String!) {
     getByConversationId(conversationId: $conversationId) {
       id
       content
@@ -38,20 +38,26 @@ interface ChatAreaProps {
 
 const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
   const [isTyping, setIsTyping] = useState(false);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const otherUser = getOtherParticipant(chat, currentUser.id);
 
-  const { data, loading, error, refetch } = useQuery(GET_MESSAGES, {
+  const { data, loading, error } = useQuery(GET_MESSAGES, {
     variables: { conversationId: chat.id },
     fetchPolicy: 'network-only',
   });
 
   const [sendMessage] = useMutation(SEND_MESSAGE);
 
-  // Scroll to bottom when messages change
+  // Reset local messages when chat changes or messages sont rechargés
+  useEffect(() => {
+    setLocalMessages([]);
+  }, [chat.id, data]);
+
+  // Scroll to bottom when messages changent
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [data]);
+  }, [data, localMessages]);
 
   // Simulate typing effect
   useEffect(() => {
@@ -66,24 +72,46 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-    await sendMessage({
-      variables: {
-        createMessageInput: {
-          content,
-          authorId: currentUser.id,
-          conversationId: chat.id,
-        },
-      },
-    });
-    refetch();
+    // Ajoute le message localement pour affichage instantané
+    const tempMessage: Message = {
+      id: `temp-${Date.now()}`,
+      content,
+      createdAt: new Date().toISOString(),
+      authorId: currentUser.id,
+      conversationId: chat.id,
+    };
+    setLocalMessages((prev) => [...prev, tempMessage]);
     setIsTyping(true);
     setTimeout(() => setIsTyping(false), 2000);
+
+    try {
+      await sendMessage({
+        variables: {
+          createMessageInput: {
+            content,
+            authorId: currentUser.id,
+            conversationId: chat.id,
+          },
+        },
+      });
+      // Optionnel : tu peux refetch ici si tu veux la vraie version du backend
+      // refetch();
+    } catch (e) {
+      // Optionnel : gérer l'erreur et retirer le message local si besoin
+    }
   };
 
   if (loading) return <div>Chargement...</div>;
   if (error) return <div>Erreur de chargement</div>;
 
-  const messages = data?.getByConversationId || [];
+  // Utilise la bonne clé selon ta requête GraphQL
+  const messages = [
+    ...(data?.getByConversationId || []),
+    ...localMessages
+  ];
+
+
+  console.log('Messages:', messages);
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-pink-50">

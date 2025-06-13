@@ -6,7 +6,7 @@ import './index.css';
 import { AuthProvider } from './components/context/AuthContext.tsx';
 
 const client = new ApolloClient({
-  uri: "http://localhost:3000/graphql",
+  uri: "https://kindoo-back.onrender.com/graphql",
   cache: new InMemoryCache(),
 });
 
