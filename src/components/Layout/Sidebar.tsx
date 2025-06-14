@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Chat, User } from '../../types';
 import Avatar from '../ui/Avatar';
-import { Search, MessageCircle, Settings, Menu, X } from 'lucide-react';
+import { Search, MessageCircle, Settings, Menu, X, LogOut } from 'lucide-react';
 import { getOtherParticipant } from '../../data/mock-data';
 import { useQuery, gql } from '@apollo/client';
+import { AuthContext } from '../context/AuthContext';
 
 interface SidebarProps {
   currentUser: User;
@@ -34,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
-  console.log('Current User:', currentUser);
+  const { logout } = useContext(AuthContext)!; // Assuming AuthContext is defined somewhere
 
   const { data, loading, error } = useQuery(GET_CONVERSATIONS_BY_PARTICIPANT, {
     variables: { p_participantId: currentUser.id },
@@ -79,9 +80,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 kindoo
               </h1>
             </div>
-            <button className="text-gray-500 hover:text-gray-700">
-              <Settings size={20} />
-            </button>
+            <div className="flex items-center gap-3">
+              <button className="text-gray-500 hover:text-gray-700">
+                <Settings size={20} />
+              </button>
+              <button
+                className="text-gray-500 hover:text-red-500"
+                title="Se déconnecter"
+                onClick={logout}
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
           <div className="relative">
             <input
