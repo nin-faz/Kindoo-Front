@@ -25,7 +25,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       >
         <p>{message.content}</p>
         <span className={`text-xs block mt-1 ${isOwn ? 'text-purple-200' : 'text-gray-500'}`}>
-          {message.timestamp}
+          {message.createdAt}
         </span>
       </div>
       

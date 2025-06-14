@@ -1,8 +1,7 @@
-import React, { useEffect, useContext } from 'react';
+import React, { useEffect, useContext, useState } from 'react';
 import Sidebar from './Sidebar';
 import ChatArea from '../Chat/ChatArea';
-import { useState } from 'react';
-import { Chat, User } from '../../types';
+import { Chat } from '../../types';
 import { chats } from '../../data/mock-data';
 import WelcomeScreen from './WelcomeScreen';
 import AuthPage from './auth/AuthPage';
@@ -12,19 +11,32 @@ const AppShell: React.FC = () => {
   const { user } = useContext(AuthContext)!;
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [availableChats] = useState<Chat[]>(chats);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    // Vérifie si un user est présent dans le localStorage ou dans le contexte
+    const storedUser = localStorage.getItem('user');
+    if (user || storedUser) {
+      setShowWelcome(true);
+    } else {
+      setShowWelcome(false);
+    }
+  }, [user]);
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {user ? (
-        <>
-          <Sidebar
-            currentUser={user}
-            chats={availableChats}
-            activeChat={activeChat}
-            onChatSelect={setActiveChat}
-          />
+      {showWelcome ? (
+       <>
+          {user && (
+            <Sidebar
+              currentUser={user}
+              chats={availableChats}
+              activeChat={activeChat}
+              onChatSelect={setActiveChat}
+            />
+          )}
           <main className="flex-1 flex flex-col h-full">
-            {activeChat ? (
+            {activeChat && user ? (
               <ChatArea
                 chat={activeChat}
                 currentUser={user}

@@ -36,6 +36,8 @@ interface ChatAreaProps {
   currentUser: User;
 }
 
+const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=U';
+
 const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -119,17 +121,16 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       <header className="px-4 py-3 bg-white shadow-sm flex items-center justify-between z-10">
         <div className="flex items-center">
           <Avatar 
-            src={otherUser.avatar} 
+            src={DEFAULT_AVATAR} 
             alt={otherUser.userName} 
-            status={otherUser.status} 
+            status={otherUser.status === 'online' ? 'online' : 'offline'} 
           />
           <div className="ml-3">
             <h2 className="font-medium text-gray-900">{otherUser.userName}</h2>
             <p className="text-xs text-gray-500">
               {otherUser.status === 'online' 
                 ? 'Online' 
-                : `Last seen ${otherUser.lastSeen}`
-              }
+                : `Last seen ${otherUser.lastSeen || 'N/A'}`}
             </p>
           </div>
         </div>
@@ -149,21 +150,36 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-4">
-          {messages.map((message: Message) => (
-            <MessageBubble
-              key={message.id}
-              message={{
-                ...message,
-                createdAt: new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              }}
-              isOwn={message.authorId === currentUser.id}
-              senderAvatar={message.authorId === currentUser.id ? currentUser.avatar : otherUser.avatar}
-            />
-          ))}
-          
+          {(() => {
+            let lastDate: string | null = null;
+            return messages.map((message: Message, idx: number) => {
+              const messageDate = new Date(message.createdAt).toLocaleDateString();
+              const showDateSeparator = messageDate !== lastDate;
+              lastDate = messageDate;
+              return (
+                <React.Fragment key={message.id}>
+                  {showDateSeparator && (
+                    <div className="flex justify-center my-2">
+                      <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full shadow">
+                        {messageDate}
+                      </span>
+                    </div>
+                  )}
+                  <MessageBubble
+                    message={{
+                      ...message,
+                      createdAt: new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    }}
+                    isOwn={message.authorId === currentUser.id}
+                    senderAvatar={message.authorId === currentUser.id ? currentUser.avatar : otherUser.avatar || DEFAULT_AVATAR}
+                  />
+                </React.Fragment>
+              );
+            });
+          })()}
           {isTyping && (
             <div className="flex items-end space-x-2">
-              <Avatar src={otherUser.avatar} alt={otherUser.userName} size="sm" />
+              <Avatar src={otherUser.avatar || DEFAULT_AVATAR} alt={otherUser.userName} size="sm" />
               <div className="bg-white rounded-2xl rounded-bl-none p-3 shadow-sm">
                 <div className="flex space-x-1">
                   <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -173,7 +189,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
               </div>
             </div>
           )}
-          
           <div ref={messagesEndRef} />
         </div>
       </div>
