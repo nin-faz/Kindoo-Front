@@ -6,9 +6,10 @@ import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import { Phone, Video, MoreVertical } from 'lucide-react';
 import { useQuery, useMutation, gql } from '@apollo/client';
+import { io, Socket } from 'socket.io-client';
 
 const GET_MESSAGES = gql`
-  query getByConversationId($conversationId: String!) {
+  query GetByConversationId($conversationId: String!) {
     getByConversationId(conversationId: $conversationId) {
       id
       content
@@ -36,32 +37,58 @@ interface ChatAreaProps {
   currentUser: User;
 }
 
+// Use import.meta.env for Vite/React environment variables
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+
 const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=U';
 
+
 const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const otherUser = getOtherParticipant(chat, currentUser.id);
 
-  const { data, loading, error } = useQuery(GET_MESSAGES, {
+  // Récupère les messages initiaux
+  const { data, loading, error, refetch } = useQuery(GET_MESSAGES, {
     variables: { conversationId: chat.id },
     fetchPolicy: 'network-only',
+    onCompleted: (data) => {
+      setMessages(data?.getByConversationId || []);
+    }
   });
 
   const [sendMessage] = useMutation(SEND_MESSAGE);
 
-  // Reset local messages when chat changes or messages sont rechargés
+  // WebSocket: écoute les nouveaux messages
   useEffect(() => {
-    setLocalMessages([]);
+    const socket: Socket = io(SOCKET_URL, { transports: ['websocket'] });
+
+    socket.emit('joinConversation', chat.id);
+
+    socket.on('newMessage', (message: Message) => {
+      if (message.conversationId === chat.id) {
+        setMessages((prev) => [...prev, message]);
+      }
+    });
+
+    return () => {
+      socket.emit('leaveConversation', chat.id);
+      socket.disconnect();
+    };
+  }, [chat.id]);
+
+  // Reset messages quand on change de chat
+  useEffect(() => {
+    setMessages(data?.getByConversationId || []);
   }, [chat.id, data]);
 
-  // Scroll to bottom when messages changent
+  // Scroll to bottom quand messages changent
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [data, localMessages]);
+  }, [messages]);
 
-  // Simulate typing effect
+  // Simulate typing effect (optionnel)
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     if (isTyping) {
@@ -72,20 +99,10 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
     return () => clearTimeout(timeout);
   }, [isTyping]);
 
+  // Envoi du message via mutation GraphQL
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-    // Ajoute le message localement pour affichage instantané
-    const tempMessage: Message = {
-      id: `temp-${Date.now()}`,
-      content,
-      createdAt: new Date().toISOString(),
-      authorId: currentUser.id,
-      conversationId: chat.id,
-    };
-    setLocalMessages((prev) => [...prev, tempMessage]);
     setIsTyping(true);
-    setTimeout(() => setIsTyping(false), 2000);
-
     try {
       await sendMessage({
         variables: {
@@ -96,24 +113,16 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
           },
         },
       });
-      // Optionnel : tu peux refetch ici si tu veux la vraie version du backend
-      // refetch();
+      // Le message sera reçu via le WebSocket (pas besoin de l'ajouter localement)
     } catch (e) {
-      // Optionnel : gérer l'erreur et retirer le message local si besoin
+      // Optionnel : gérer l'erreur
+    } finally {
+      setTimeout(() => setIsTyping(false), 2000);
     }
   };
 
   if (loading) return <div>Chargement...</div>;
   if (error) return <div>Erreur de chargement</div>;
-
-  // Utilise la bonne clé selon ta requête GraphQL
-  const messages = [
-    ...(data?.getByConversationId || []),
-    ...localMessages
-  ];
-
-
-  console.log('Messages:', messages);
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-pink-50">
@@ -121,9 +130,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       <header className="px-4 py-3 bg-white shadow-sm flex items-center justify-between z-10">
         <div className="flex items-center">
           <Avatar 
-            src={DEFAULT_AVATAR} 
+            src={otherUser.avatar || DEFAULT_AVATAR} 
             alt={otherUser.userName} 
-            status={otherUser.status === 'online' ? 'online' : 'offline'} 
+            status={otherUser.status} 
           />
           <div className="ml-3">
             <h2 className="font-medium text-gray-900">{otherUser.userName}</h2>
@@ -152,7 +161,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
         <div className="space-y-4">
           {(() => {
             let lastDate: string | null = null;
-            return messages.map((message: Message, idx: number) => {
+            return messages.map((message: Message) => {
               const messageDate = new Date(message.createdAt).toLocaleDateString();
               const showDateSeparator = messageDate !== lastDate;
               lastDate = messageDate;
@@ -177,23 +186,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
               );
             });
           })()}
-          {isTyping && (
-            <div className="flex items-end space-x-2">
-              <Avatar src={otherUser.avatar || DEFAULT_AVATAR} alt={otherUser.userName} size="sm" />
-              <div className="bg-white rounded-2xl rounded-bl-none p-3 shadow-sm">
-                <div className="flex space-x-1">
-                  <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
-      
-      {/* Message input */}
       <MessageInput onSendMessage={handleSendMessage} />
     </div>
   );
