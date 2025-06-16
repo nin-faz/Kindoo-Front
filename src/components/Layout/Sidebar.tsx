@@ -10,7 +10,7 @@ interface SidebarProps {
   currentUser: User;
   chats: Chat[];
   activeChat: Chat | null;
-  onChatSelect: (chat: Chat) => void;
+  onChatSelect: (chat: Chat | null) => void;
 }
 
 const GET_CONVERSATIONS_BY_PARTICIPANT = gql`
@@ -76,9 +76,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <MessageCircle className="text-purple-500" size={24} />
-              <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+              <button
+                type="button"
+                className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent inline-block focus:outline-none"
+                onClick={() => onChatSelect(null)}
+                style={{ border: 'none', padding: 0, cursor: 'pointer' }}
+                aria-label="Accueil Kindoo"
+              >
                 kindoo
-              </h1>
+              </button>
+
             </div>
             <div className="flex items-center gap-3">
               <button className="text-gray-500 hover:text-gray-700">
@@ -110,53 +117,32 @@ const Sidebar: React.FC<SidebarProps> = ({
             <h2 className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
               Recent Chats
             </h2>
-            {filteredChats.length > 0 ? (
-              <ul>
-                {filteredChats.map((chat: any) => {
-                  const otherUser = getOtherParticipant(chat, currentUser.id);
-                  const isActive = activeChat?.id === chat.id;
-                  console.log('Chat:', chat, 'Other User:', otherUser);
-                  
-                  return (
-                    <li key={chat.id}>
-                      <button
-                        className={`w-full flex items-center p-3 rounded-xl transition-colors duration-200
-                                   ${isActive ? 'bg-purple-100' : 'hover:bg-gray-100'}`}
-                        onClick={() => {
-                          onChatSelect(chat);
-                          if (mobileOpen) setMobileOpen(false);
-                        }}
-                      >
-                        <Avatar 
-                          src={DEFAULT_AVATAR} 
-                          alt={otherUser.userName} 
-                        />
-                        <div className="ml-3 flex-1 text-left">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-900">{otherUser.userName}</span>
-                            <span className="text-xs text-gray-500">{chat.lastMessage?.timestamp}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <p className="text-sm text-gray-600 truncate max-w-[160px]">
-                              {chat.lastMessage?.content}
-                            </p>
-                            {chat.unreadCount > 0 && (
-                              <span className="ml-2 bg-purple-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                                {chat.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className="px-4 py-8 text-center text-gray-500">
-                <p>No chats found</p>
-              </div>
-            )}
+            {loading ? (
+            <div className="text-center text-gray-400 mt-8">Loading</div>
+          ) : filteredChats.length === 0 ? (
+            <div className="text-center text-gray-400 mt-8">No chats found</div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {filteredChats.map((chat: any) => {
+                const otherUser = getOtherParticipant(chat, currentUser.id);
+                return (
+                  <li
+                    key={chat.id}
+                    className={`cursor-pointer px-4 py-3 flex items-center gap-3 hover:bg-purple-50 transition
+                      ${activeChat && activeChat.id === chat.id ? 'bg-purple-100' : ''}`}
+                    onClick={() => onChatSelect(chat)}
+                  >
+                    <Avatar
+                      src={otherUser.avatar || DEFAULT_AVATAR}
+                      alt={otherUser.userName}
+                      size="md"
+                    />
+                    <span className="font-medium text-gray-800">{otherUser.userName}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           </div>
         </div>
 
