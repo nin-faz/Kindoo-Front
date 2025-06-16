@@ -61,14 +61,24 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
   const [sendMessage] = useMutation(SEND_MESSAGE);
 
   // WebSocket: écoute les nouveaux messages
-  useEffect(() => {
+    useEffect(() => {
     const socket: Socket = io(SOCKET_URL, { transports: ['websocket'] });
 
     socket.emit('joinConversation', chat.id);
 
     socket.on('newMessage', (message: Message) => {
       if (message.conversationId === chat.id) {
-        setMessages((prev) => [...prev, message]);
+        // Si ce n'est pas le message de l'utilisateur courant, effet typing
+        if (message.authorId !== currentUser.id) {
+          setIsTyping(true);
+          setTimeout(() => {
+            setMessages((prev) => [...prev, message]);
+            setIsTyping(false);
+          }, 800); // délai effet typing
+        } else {
+          // Si c'est le message de l'utilisateur courant, affiche direct
+          setMessages((prev) => [...prev, message]);
+        }
       }
     });
 
@@ -76,7 +86,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       socket.emit('leaveConversation', chat.id);
       socket.disconnect();
     };
-  }, [chat.id]);
+  }, [chat.id, currentUser.id]);
 
   // Reset messages quand on change de chat
   useEffect(() => {
@@ -102,7 +112,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
   // Envoi du message via mutation GraphQL
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-    setIsTyping(true);
     try {
       await sendMessage({
         variables: {
@@ -115,9 +124,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       });
       // Le message sera reçu via le WebSocket (pas besoin de l'ajouter localement)
     } catch (e) {
-      // Optionnel : gérer l'erreur
-    } finally {
-      setTimeout(() => setIsTyping(false), 2000);
+      console.error('Erreur lors de l\'envoi du message:', e);
     }
   };
 
@@ -186,6 +193,18 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
               );
             });
           })()}
+          {isTyping && (
+            <div className="flex items-end space-x-2">
+              <Avatar src={otherUser.avatar || DEFAULT_AVATAR} alt={otherUser.userName} size="sm" />
+              <div className="bg-white rounded-2xl rounded-bl-none p-3 shadow-sm">
+                <div className="flex space-x-1">
+                  <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
