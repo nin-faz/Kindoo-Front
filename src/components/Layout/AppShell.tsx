@@ -2,16 +2,27 @@ import React, { useEffect, useContext, useState } from 'react';
 import Sidebar from './Sidebar';
 import ChatArea from '../Chat/ChatArea';
 import { Chat } from '../../types';
-import { chats } from '../../data/mock-data';
 import WelcomeScreen from './WelcomeScreen';
 import AuthPage from './auth/AuthPage';
 import { AuthContext } from '../context/AuthContext';
 
 const AppShell: React.FC = () => {
-  const { user } = useContext(AuthContext)!;
+  const { user, verifyToken, logout } = useContext(AuthContext)!;
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
-  const [availableChats] = useState<Chat[]>(chats);
+  const [availableChats] = useState<Chat[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Vérification de la validité du token au chargement et quand il change
+  useEffect(() => {
+    const checkToken = async () => {
+      const isValid = await verifyToken();
+      if (!isValid) {
+        logout();
+        setShowWelcome(false);
+      }
+    };
+    checkToken();
+  }, [verifyToken, logout]);
 
   useEffect(() => {
     // Vérifie si un user est présent dans le localStorage ou dans le contexte

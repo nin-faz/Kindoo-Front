@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, User, Message } from '../../types';
-import { getOtherParticipant } from '../../data/mock-data';
 import Avatar from '../ui/Avatar';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
@@ -37,11 +36,14 @@ interface ChatAreaProps {
   currentUser: User;
 }
 
-// Use import.meta.env for Vite/React environment variables
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
-const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=U';
-
+const getOtherParticipant = (chat: Chat, currentUserId: string): User => {
+  const users = chat.participants;
+  console.log('Chat participants:', users, 'Current user ID:', currentUserId);
+  console.log('Other participant:',  users.find(user => String(user.id) !== String(currentUserId)));
+  return users.find(user => String(user.id) !== String(currentUserId)) || users[0];
+};
 
 const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,6 +59,11 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       setMessages(data?.getByConversationId || []);
     }
   });
+
+  const getUserAvatar = (username: string) => {
+    const firstLetter = username.charAt(0).toUpperCase();
+    return `https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=${firstLetter}`;
+  }
 
   const [sendMessage] = useMutation(SEND_MESSAGE);
 
@@ -100,7 +107,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
 
   // Simulate typing effect (optionnel)
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
     if (isTyping) {
       timeout = setTimeout(() => {
         setIsTyping(false);
@@ -128,8 +135,19 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
     }
   };
 
-  if (loading) return <div>Chargement...</div>;
-  if (error) return <div>Erreur de chargement</div>;
+  if (loading) 
+  return (
+    <div className="flex justify-center items-center min-h-screen">
+      <svg className="animate-spin h-16 w-16 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    </div>
+  );
+  if (error){
+    console.error('Error loading messages:', error);
+    return <div>Error loading messages</div>;
+  } 
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-pink-50">
@@ -137,17 +155,11 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
       <header className="px-4 py-3 bg-white shadow-sm flex items-center justify-between z-10">
         <div className="flex items-center">
           <Avatar 
-            src={otherUser.avatar || DEFAULT_AVATAR} 
+            src={getUserAvatar(otherUser.userName)} 
             alt={otherUser.userName} 
-            status={otherUser.status} 
           />
           <div className="ml-3">
             <h2 className="font-medium text-gray-900">{otherUser.userName}</h2>
-            <p className="text-xs text-gray-500">
-              {otherUser.status === 'online' 
-                ? 'Online' 
-                : `Last seen ${otherUser.lastSeen || 'N/A'}`}
-            </p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -187,7 +199,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
                       createdAt: new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     }}
                     isOwn={message.authorId === currentUser.id}
-                    senderAvatar={message.authorId === currentUser.id ? currentUser.avatar : otherUser.avatar || DEFAULT_AVATAR}
+                    senderAvatar={message.authorId === currentUser.id ? getUserAvatar(currentUser.userName) : getUserAvatar(otherUser.userName)}
                   />
                 </React.Fragment>
               );
@@ -195,7 +207,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
           })()}
           {isTyping && (
             <div className="flex items-end space-x-2">
-              <Avatar src={otherUser.avatar || DEFAULT_AVATAR} alt={otherUser.userName} size="sm" />
+              <Avatar src={getUserAvatar(otherUser.userName)} alt={otherUser.userName} size="sm" />
               <div className="bg-white rounded-2xl rounded-bl-none p-3 shadow-sm">
                 <div className="flex space-x-1">
                   <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>

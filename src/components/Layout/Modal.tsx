@@ -79,6 +79,11 @@ const Modal: React.FC<ConversationModalProps> = ({
     onClose();
   };
 
+  const getUserAvatar = (username: string) => {
+    const firstLetter = username.charAt(0).toUpperCase();
+    return `https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=${firstLetter}`;
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md relative">
@@ -106,7 +111,7 @@ const Modal: React.FC<ConversationModalProps> = ({
                   onClick={() => handleUserClick(user.id)}
                 >
                   <Avatar
-                    src={user.avatar || DEFAULT_AVATAR}
+                    src={getUserAvatar(user.userName)}
                     alt={user.userName}
                     size="md"
                   />

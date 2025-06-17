@@ -1,10 +1,10 @@
-import React, { useContext, useState } from 'react';
-import { Chat, User } from '../../types';
+import React, { act, useContext, useEffect, useState } from 'react';
+import { Chat, Message, User } from '../../types';
 import Avatar from '../ui/Avatar';
 import { Search, MessageCircle, Settings, Menu, X, LogOut } from 'lucide-react';
-import { getOtherParticipant } from '../../data/mock-data';
 import { useQuery, gql } from '@apollo/client';
 import { AuthContext } from '../context/AuthContext';
+import { io, Socket } from 'socket.io-client';
 
 interface SidebarProps {
   currentUser: User;
@@ -25,8 +25,14 @@ const GET_CONVERSATIONS_BY_PARTICIPANT = gql`
   }
 `;
 
-const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=U';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
+const getOtherParticipant = (chat: Chat, currentUserId: string): User => {
+  const users = chat.participants;
+  console.log('Chat participants:', users, 'Current user ID:', currentUserId);
+  console.log('Other participant:',  users.find(user => String(user.id) !== String(currentUserId)));
+  return users.find(user => String(user.id) !== String(currentUserId)) || users[0];
+};
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   currentUser, 
@@ -35,13 +41,49 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { logout } = useContext(AuthContext)!; // Assuming AuthContext is defined somewhere
+  const { logout } = useContext(AuthContext)!; 
 
-  const { data, loading, error } = useQuery(GET_CONVERSATIONS_BY_PARTICIPANT, {
+  const { data, loading, error, refetch } = useQuery(GET_CONVERSATIONS_BY_PARTICIPANT, {
     variables: { p_participantId: currentUser.id },
     fetchPolicy: 'network-only',
   });
 
+    // Rafraîchit automatiquement la liste des conversations toutes les 5 secondes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+const [newMessageChatIds, setNewMessageChatIds] = useState<string[]>([]);
+
+useEffect(() => {
+  const socket: Socket = io(SOCKET_URL, { transports: ['websocket'] });
+
+  socket.on('newMessage', (message: Message) => {
+    if (
+      message.authorId !== currentUser.id && 
+      message.conversationId !== activeChat?.id
+    ) {
+
+      setNewMessageChatIds((prev) => {
+        if (!prev.includes(message.conversationId)) {
+          return [...prev, message.conversationId];
+        }
+        return prev;
+      });
+    }
+  });
+
+  return () => {
+    socket.disconnect();
+  };
+}, [currentUser.id, activeChat?.id]);
+
+console.log('new message chat ids:', newMessageChatIds);  
+
+  
   const chats = data?.findByParticipantId || [];
   console.log('Chats:', chats);
 
@@ -49,6 +91,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     const otherUser = getOtherParticipant(chat, currentUser.id);
     return otherUser?.userName.toLowerCase().includes(searchQuery.toLowerCase());
   });
+
+
+  const getUserAvatar = (username: string) => {
+    const firstLetter = username.charAt(0).toUpperCase();
+    return `https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=${firstLetter}`;
+  }
+
 
   const toggleMobileSidebar = () => {
     setMobileOpen(!mobileOpen);
@@ -130,14 +179,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                     key={chat.id}
                     className={`cursor-pointer px-4 py-3 flex items-center gap-3 hover:bg-purple-50 transition
                       ${activeChat && activeChat.id === chat.id ? 'bg-purple-100' : ''}`}
-                    onClick={() => onChatSelect(chat)}
+                    onClick={() => {
+                      onChatSelect(chat);
+                      setNewMessageChatIds((prev) => prev.filter((id) => id !== chat.id));
+                    }}
                   >
                     <Avatar
-                      src={otherUser.avatar || DEFAULT_AVATAR}
+                      src={getUserAvatar(otherUser.userName)}
                       alt={otherUser.userName}
                       size="md"
                     />
                     <span className="font-medium text-gray-800">{otherUser.userName}</span>
+                    {newMessageChatIds.includes(chat.id) && (
+                      <span className="ml-auto text-xs text-red-500">
+                        New message
+                      </span>
+                    )}
                   </li>
                 );
               })}
@@ -149,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
             <Avatar 
-              src={DEFAULT_AVATAR} 
+              src={getUserAvatar(currentUser.userName)} 
               alt={currentUser.userName} 
             />
             <div className="ml-3">

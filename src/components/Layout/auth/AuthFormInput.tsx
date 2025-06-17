@@ -65,6 +65,7 @@ export const AuthFormInput: React.FC<AuthFormInputProps> = ({
         >
           {label} {required && <span className="text-red-500">*</span>}
         </label>
+        
       </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthFormInput } from './AuthFormInput';
 import { Button } from '../ui/Button';
 import { useMutation, gql } from '@apollo/client';
+import { AuthContext } from '../../context/AuthContext';
 
 const REGISTER_USER = gql`
   mutation CreateUser($createUserInput: CreateUserInput!) {
@@ -14,8 +15,17 @@ const REGISTER_USER = gql`
   }
 `;
 
+const LOGIN_USER = gql`
+  mutation Login($username: String!, $pass: String!) {
+    login(username: $username, pass: $pass)
+  }
+`;
+
 export const RegisterForm: React.FC = () => {
   const [createUser] = useMutation(REGISTER_USER);
+  const [loginMutation] = useMutation(LOGIN_USER);
+  const { login } = useContext(AuthContext)!;
+
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -36,8 +46,6 @@ export const RegisterForm: React.FC = () => {
       ...formData,
       [name]: type === 'checkbox' ? checked : value
     });
-    
-    // Clear error when field is edited
     if (errors[name]) {
       setErrors({
         ...errors,
@@ -46,31 +54,21 @@ export const RegisterForm: React.FC = () => {
     }
   };
 
-  // Check password strength
   useEffect(() => {
     if (!formData.password) {
       setPasswordStrength({ score: 0, label: '' });
       return;
     }
-
     let score = 0;
     const password = formData.password;
-    
-    // Length check
     if (password.length >= 8) score += 1;
     if (password.length >= 12) score += 1;
-    
-    // Character variety checks
     if (/[A-Z]/.test(password)) score += 1;
     if (/[a-z]/.test(password)) score += 1;
     if (/[0-9]/.test(password)) score += 1;
     if (/[^A-Za-z0-9]/.test(password)) score += 1;
-    
-    // Normalize score to 0-4 range
     score = Math.min(4, Math.floor(score / 1.5));
-    
     const labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'];
-    
     setPasswordStrength({
       score,
       label: labels[score]
@@ -79,12 +77,9 @@ export const RegisterForm: React.FC = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
-
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     }
-
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
@@ -92,26 +87,19 @@ export const RegisterForm: React.FC = () => {
     } else if (passwordStrength.score < 2) {
       newErrors.password = 'Password is too weak';
     }
-    
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
     setIsSubmitting(true);
-    
-    // Simulate API call
     try {
       const { data } = await createUser({
         variables: {
@@ -121,10 +109,18 @@ export const RegisterForm: React.FC = () => {
           },
         },
       });
-      // Optionnel : stocker l'utilisateur ou rediriger
-      localStorage.setItem('userConnected', 'true');
-      localStorage.setItem('user', JSON.stringify(data.createUser));
-      // Afficher un message ou rediriger
+      // Si l'inscription a réussi, on enchaîne avec le login
+      if (data?.createUser) {
+        const loginResult = await loginMutation({
+          variables: {
+            username: formData.username,
+            pass: formData.password,
+          },
+        });
+        if (loginResult.data?.login) {
+          login(loginResult.data.login);
+        }
+      }
     } catch (error: any) {
       setErrors({
         form: error.message || 'Registration failed. Please try again later.',
@@ -134,10 +130,8 @@ export const RegisterForm: React.FC = () => {
     }
   };
 
-  // Password strength indicator component
   const PasswordStrengthIndicator = () => {
     if (!formData.password) return null;
-    
     const colors = [
       'bg-red-500',     // Very weak
       'bg-orange-500',  // Weak
@@ -145,7 +139,6 @@ export const RegisterForm: React.FC = () => {
       'bg-green-400',   // Good
       'bg-green-500'    // Strong
     ];
-    
     return (
       <div className="mt-2">
         <div className="flex h-1 w-full bg-slate-200 rounded-full overflow-hidden">
@@ -198,10 +191,19 @@ export const RegisterForm: React.FC = () => {
           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
           onClick={() => setShowPassword(!showPassword)}
           tabIndex={-1}
+          aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
         >
           {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>
+        {/* Contraintes du mot de passe */}
         <PasswordStrengthIndicator />
+        <ul className="mt-2 text-xs text-slate-500 list-disc list-inside">
+            <li>Au moins 8 caractères</li>
+            <li>Au moins une majuscule</li>
+            <li>Au moins une minuscule</li>
+            <li>Au moins un chiffre</li>
+            <li>Au moins un caractère spécial</li>
+        </ul>
       </div>
       
       <div className="relative">
@@ -225,7 +227,6 @@ export const RegisterForm: React.FC = () => {
         </button>
       </div>
 
-      
       <Button 
         type="submit" 
         isLoading={isSubmitting}
