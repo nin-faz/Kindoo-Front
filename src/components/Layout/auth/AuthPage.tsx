@@ -7,7 +7,7 @@ export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-slate-100 p-4 sm:p-6">
+    <div className="min-h-screen flex items-center justify-center from-indigo-50 to-slate-100 p-4 sm:p-6">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 ease-in-out">
         {/* Header */}
         <div className="bg-indigo-600 p-6 text-center">
