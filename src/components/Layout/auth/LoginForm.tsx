@@ -2,17 +2,10 @@ import React, { useState, useContext } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthFormInput } from './AuthFormInput';
 import { Button } from '../ui/Button';
-import { useMutation, gql } from '@apollo/client';
 import { AuthContext } from '../../context/AuthContext';
 
-const LOGIN_USER = gql`
-  mutation Login($username: String!, $pass: String!) {
-    login(username: $username, pass: $pass) 
-  }
-`;
 
 export const LoginForm: React.FC = () => {
-  const [loginMutation] = useMutation(LOGIN_USER);
   const { login } = useContext(AuthContext)!; // Utilisation du contexte d'auth
 
   const [formData, setFormData] = useState({
@@ -54,15 +47,7 @@ export const LoginForm: React.FC = () => {
     if (!validateForm()) return;
     setIsSubmitting(true);
     try {
-      const { data } = await loginMutation({
-        variables: {
-          username: formData.username,
-          pass: formData.password,
-        },
-      });
-      if (data?.login) {
-        login(data.login); // Utilise le contexte pour connecter l'utilisateur
-      }
+      login(formData.username, formData.password);
     } catch (error: any) {
       setErrors({
         form: error.message || 'Authentication failed. Please check your credentials.'
