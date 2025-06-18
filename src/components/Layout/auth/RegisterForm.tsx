@@ -6,8 +6,8 @@ import { useMutation, gql } from '@apollo/client';
 import { AuthContext } from '../../context/AuthContext';
 
 const REGISTER_USER = gql`
-  mutation CreateUser($createUserInput: CreateUserInput!) {
-    createUser(createUserInput: $createUserInput) {
+  mutation CreateUser($p_createUserInput: CreateUserInput!) {
+    createUser(p_createUserInput: $p_createUserInput) {
       id
       userName
       createdAt
@@ -15,15 +15,8 @@ const REGISTER_USER = gql`
   }
 `;
 
-const LOGIN_USER = gql`
-  mutation Login($username: String!, $pass: String!) {
-    login(username: $username, pass: $pass)
-  }
-`;
-
 export const RegisterForm: React.FC = () => {
   const [createUser] = useMutation(REGISTER_USER);
-  const [loginMutation] = useMutation(LOGIN_USER);
   const { login } = useContext(AuthContext)!;
 
   const [formData, setFormData] = useState({
@@ -103,7 +96,7 @@ export const RegisterForm: React.FC = () => {
     try {
       const { data } = await createUser({
         variables: {
-          createUserInput: {
+          p_createUserInput: {
             userName: formData.username,
             password: formData.password,
           },
@@ -111,15 +104,7 @@ export const RegisterForm: React.FC = () => {
       });
       // Si l'inscription a réussi, on enchaîne avec le login
       if (data?.createUser) {
-        const loginResult = await loginMutation({
-          variables: {
-            username: formData.username,
-            pass: formData.password,
-          },
-        });
-        if (loginResult.data?.login) {
-          login(loginResult.data.login);
-        }
+        login(formData.username, formData.password);
       }
     } catch (error: any) {
       setErrors({
@@ -197,14 +182,14 @@ export const RegisterForm: React.FC = () => {
         </button>
         {/* Contraintes du mot de passe */}
         <PasswordStrengthIndicator />
-        <ul className="mt-2 text-xs text-slate-500 list-disc list-inside">
+      </div>
+      <ul className="mt-2 text-xs text-slate-500 list-disc list-inside">
             <li>Au moins 8 caractères</li>
             <li>Au moins une majuscule</li>
             <li>Au moins une minuscule</li>
             <li>Au moins un chiffre</li>
             <li>Au moins un caractère spécial</li>
-        </ul>
-      </div>
+      </ul>
       
       <div className="relative">
         <AuthFormInput

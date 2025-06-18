@@ -1,8 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, gql, useLazyQuery } from '@apollo/client';
 import Avatar from '../ui/Avatar';
-
-const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=U';
 
 const GET_USERS = gql`
   query GetUsers {
@@ -52,15 +50,21 @@ const Modal: React.FC<ConversationModalProps> = ({
   currentUserId,
   onConversationCreated,
 }) => {
-  const { data, loading, error } = useQuery(GET_USERS);
+  const { data, loading, error, refetch } = useQuery(GET_USERS);
   const [createConversation, { loading: creating }] = useMutation(CREATE_CONVERSATION);
   const [findConversation] = useLazyQuery(FIND_CONVERSATION_BY_PARTICIPANTS);
+  const [clickedUserIds, setClickedUserIds] = useState<string[]>([]);
 
-
-  if (!open) return null;
+  useEffect(() => {
+    if (open) {
+      refetch(); // rafraîchit la liste quand la modale s'ouvre
+    }
+  }, [open, refetch]);
 
   const handleUserClick = async (userId: string) => {
-    if (userId === currentUserId) return;
+  if (userId === currentUserId || clickedUserIds.includes(userId)) return;
+
+  setClickedUserIds(prev => [...prev, userId]);    
   // Vérifie si la conversation existe déjà
     const participants = [currentUserId, userId];
     const { data } = await findConversation({ variables: { p_participantsIds: participants } });
@@ -84,6 +88,9 @@ const Modal: React.FC<ConversationModalProps> = ({
     return `https://ui-avatars.com/api/?background=8b5cf6&color=fff&name=${firstLetter}`;
   }
 
+  if (!open) return null;
+
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md relative">
@@ -99,6 +106,8 @@ const Modal: React.FC<ConversationModalProps> = ({
           <div>Loading users...</div>
         ) : error ? (
           <div className="text-red-500">Error loading users</div>
+        )  : !data || !data.users || data.users.length === 1 ? (
+          <div>No users</div>
         ) : (
           <ul className="space-y-3 max-h-72 overflow-y-auto">
             {
@@ -107,7 +116,11 @@ const Modal: React.FC<ConversationModalProps> = ({
               .map((user: any) => (
                 <li
                   key={user.id}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-purple-50 cursor-pointer transition"
+                    className={`flex items-center gap-3 p-2 rounded-lg transition ${
+                      clickedUserIds.includes(user.id)
+                        ? 'bg-gray-100 cursor-not-allowed opacity-50'
+                        : 'hover:bg-purple-50 cursor-pointer'
+                    }`}
                   onClick={() => handleUserClick(user.id)}
                 >
                   <Avatar
