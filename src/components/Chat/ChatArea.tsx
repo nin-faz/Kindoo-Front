@@ -8,8 +8,8 @@ import { useQuery, useMutation, gql } from '@apollo/client';
 import { io, Socket } from 'socket.io-client';
 
 const GET_MESSAGES = gql`
-  query GetByConversationId($conversationId: String!) {
-    getByConversationId(conversationId: $conversationId) {
+  query GetByConversationId($p_conversationId: String!) {
+    getByConversationId(p_conversationId: $p_conversationId) {
       id
       content
       createdAt
@@ -40,8 +40,6 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
 const getOtherParticipant = (chat: Chat, currentUserId: string): User => {
   const users = chat.participants;
-  console.log('Chat participants:', users, 'Current user ID:', currentUserId);
-  console.log('Other participant:',  users.find(user => String(user.id) !== String(currentUserId)));
   return users.find(user => String(user.id) !== String(currentUserId)) || users[0];
 };
 
@@ -52,8 +50,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
   const otherUser = getOtherParticipant(chat, currentUser.id);
 
   // Récupère les messages initiaux
-  const { data, loading, error, refetch } = useQuery(GET_MESSAGES, {
-    variables: { conversationId: chat.id },
+  const { data, loading, error } = useQuery(GET_MESSAGES, {
+    variables: { p_conversationId: chat.id },
     fetchPolicy: 'network-only',
     onCompleted: (data) => {
       setMessages(data?.getByConversationId || []);
