@@ -20,8 +20,8 @@ const GET_MESSAGES = gql`
 `;
 
 const SEND_MESSAGE = gql`
-  mutation SendMessage($createMessageInput: CreateMessageInput!) {
-    sendMessage(createMessageInput: $createMessageInput) {
+  mutation SendMessage($p_createMessageInput: CreateMessageInput!) {
+    sendMessage(p_createMessageInput: $p_createMessageInput) {
       id
       content
       createdAt
@@ -120,7 +120,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ chat, currentUser }) => {
     try {
       await sendMessage({
         variables: {
-          createMessageInput: {
+          p_createMessageInput: {
             content,
             authorId: currentUser.id,
             conversationId: chat.id,
